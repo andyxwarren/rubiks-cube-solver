@@ -590,7 +590,7 @@
                             <div class="feature-icon">📸</div>
                             <div>
                                 <h4 style="margin-bottom: 2px; font-size: 12px;">Smart Detection</h4>
-                                <p style="font-size: 10px; color: #666; margin: 0;">HSV-based detection</p>
+                                <p style="font-size: 10px; color: #666; margin: 0;">RGB-based detection</p>
                             </div>
                         </div>
                         <div class="feature-item">
@@ -796,12 +796,12 @@
             
             // Color definitions
             COLORS: {
-                W: { name: 'White', hex: '#FFFFFF', rgb: [255, 255, 255], hsv: [0, 0, 100] },
-                Y: { name: 'Yellow', hex: '#FFD500', rgb: [255, 213, 0], hsv: [50, 100, 100] },
-                R: { name: 'Red', hex: '#FF0000', rgb: [255, 0, 0], hsv: [0, 100, 100] },
-                O: { name: 'Orange', hex: '#FF8800', rgb: [255, 136, 0], hsv: [32, 100, 100] },
-                B: { name: 'Blue', hex: '#0051BA', rgb: [0, 81, 186], hsv: [214, 100, 73] },
-                G: { name: 'Green', hex: '#00AA00', rgb: [0, 170, 0], hsv: [120, 100, 67] }
+                W: { name: 'White', hex: '#FFFFFF', rgb: [255, 255, 255] },
+                Y: { name: 'Yellow', hex: '#FFD500', rgb: [255, 213, 0] },
+                R: { name: 'Red', hex: '#FF0000', rgb: [255, 0, 0] },
+                O: { name: 'Orange', hex: '#FF8800', rgb: [255, 136, 0] },
+                B: { name: 'Blue', hex: '#0051BA', rgb: [0, 81, 186] },
+                G: { name: 'Green', hex: '#00AA00', rgb: [0, 170, 0] }
             },
 
             FACE_NAMES: ['Front', 'Back', 'Up', 'Down', 'Left', 'Right'],
@@ -812,54 +812,29 @@
             scanStream: null,
             scanInterval: null,
 
-            // Color Utils
-            rgbToHsv(r, g, b) {
-                r /= 255; g /= 255; b /= 255;
-                const max = Math.max(r, g, b);
-                const min = Math.min(r, g, b);
-                const d = max - min;
-                const s = max === 0 ? 0 : d / max;
-                const v = max;
-                let h;
-                
-                if (max === min) {
-                    h = 0;
-                } else {
-                    switch (max) {
-                        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                        case g: h = (b - r) / d + 2; break;
-                        case b: h = (r - g) / d + 4; break;
-                    }
-                    h /= 6;
-                }
-                
-                return [h * 360, s * 100, v * 100];
-            },
-
-            calculateHsvDistance(hsv1, hsv2) {
-                const hDiff = Math.min(Math.abs(hsv1[0] - hsv2[0]), 360 - Math.abs(hsv1[0] - hsv2[0]));
-                const sDiff = Math.abs(hsv1[1] - hsv2[1]);
-                const vDiff = Math.abs(hsv1[2] - hsv2[2]);
-                return Math.sqrt(Math.pow(hDiff * 2, 2) + Math.pow(sDiff, 2) + Math.pow(vDiff, 2));
-            },
-
+            // Color Utils - RGB Euclidean Distance
             matchColor(rgb) {
-                const hsv = this.rgbToHsv(rgb[0], rgb[1], rgb[2]);
                 const colorsToMatch = this.calibratedColors || this.COLORS;
-                
+
                 let minDist = Infinity;
                 let closestColor = 'W';
-                
+
                 for (const [key, value] of Object.entries(colorsToMatch)) {
-                    const colorHsv = value.calibratedHsv || value.hsv;
-                    const dist = this.calculateHsvDistance(hsv, colorHsv);
+                    const refRgb = value.calibratedRgb || value.rgb;
+                    // RGB Euclidean distance
+                    const dist = Math.sqrt(
+                        Math.pow(rgb[0] - refRgb[0], 2) +
+                        Math.pow(rgb[1] - refRgb[1], 2) +
+                        Math.pow(rgb[2] - refRgb[2], 2)
+                    );
                     if (dist < minDist) {
                         minDist = dist;
                         closestColor = key;
                     }
                 }
-                
-                const confidence = Math.max(0, Math.min(100, 100 - minDist / 3));
+
+                // Max possible distance is sqrt(255^2 * 3) ≈ 441
+                const confidence = Math.max(0, Math.min(100, 100 - (minDist / 4.41)));
                 return { color: closestColor, confidence };
             },
 
@@ -920,22 +895,22 @@
                 const video = document.getElementById('calibration-video');
                 const canvas = document.getElementById('calibration-canvas');
                 const ctx = canvas.getContext('2d');
-                
+
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 ctx.drawImage(video, 0, 0);
-                
+
                 const centerX = canvas.width / 2;
                 const centerY = canvas.height / 2;
                 const sampleSize = 50;
-                
+
                 const imageData = ctx.getImageData(
-                    centerX - sampleSize/2, 
-                    centerY - sampleSize/2, 
-                    sampleSize, 
+                    centerX - sampleSize/2,
+                    centerY - sampleSize/2,
+                    sampleSize,
                     sampleSize
                 );
-                
+
                 let r = 0, g = 0, b = 0, count = 0;
                 for (let i = 0; i < imageData.data.length; i += 4) {
                     r += imageData.data[i];
@@ -946,22 +921,21 @@
                 r = Math.round(r / count);
                 g = Math.round(g / count);
                 b = Math.round(b / count);
-                
-                const hsv = this.rgbToHsv(r, g, b);
+
                 const colorKey = this.calibrationColors[this.currentCalibrationIndex];
-                
+
+                // Store calibrated RGB values only
                 this.calibratedColors[colorKey] = {
                     ...this.COLORS[colorKey],
-                    calibratedRgb: [r, g, b],
-                    calibratedHsv: hsv
+                    calibratedRgb: [r, g, b]
                 };
-                
+
                 document.getElementById('calibration-target').classList.add('sampling');
-                
+
                 setTimeout(() => {
                     document.getElementById('calibration-target').classList.remove('sampling');
                     this.currentCalibrationIndex++;
-                    
+
                     if (this.currentCalibrationIndex < 6) {
                         this.updateCalibrationUI();
                     } else {
@@ -986,9 +960,6 @@
             // Scanning
             detectedColors: Array(9).fill(null),
             detectedConfidence: Array(9).fill(0),
-            colorBuffer: [], // Buffer for temporal averaging
-            maxBufferSize: 5, // Number of frames to average
-            stableFrames: 0, // Counter for stable detection
 
             async startScanning() {
                 this.showScreen('scanning-screen');
@@ -1085,57 +1056,25 @@
                 const video = document.getElementById('scan-video');
                 const canvas = document.getElementById('scan-canvas');
                 const ctx = canvas.getContext('2d');
-                
+
                 if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
-                
+
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 ctx.drawImage(video, 0, 0);
-                
+
                 // Analyze lighting
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const lighting = this.analyzeLighting(imageData.data);
                 this.updateLightingIndicator(lighting);
-                
-                // Detect colors
+
+                // Detect colors from current frame
                 const result = this.detectColorsFromFrame(ctx, canvas.width, canvas.height);
+                this.detectedColors = result.colors;
+                this.detectedConfidence = result.confidence;
 
-                // Add to buffer for temporal averaging
-                this.colorBuffer.push({
-                    colors: result.colors,
-                    confidence: result.confidence,
-                    timestamp: Date.now()
-                });
-
-                // Keep buffer size limited
-                if (this.colorBuffer.length > this.maxBufferSize) {
-                    this.colorBuffer.shift();
-                }
-
-                // Average colors across buffer
-                if (this.colorBuffer.length >= 3) {
-                    this.detectedColors = this.getAveragedColors();
-                    this.detectedConfidence = this.getAveragedConfidence();
-                } else {
-                    this.detectedColors = result.colors;
-                    this.detectedConfidence = result.confidence;
-                }
-
-                // Update grid display
+                // Update grid display with detected colors
                 this.updateGridDisplay();
-
-                // Auto-capture if high confidence AND stable across frames
-                const isStable = this.colorBuffer.length >= 4 && this.checkColorStability();
-                const isConfident = this.detectedConfidence.every(c => c > 85);
-
-                if (isStable && isConfident) {
-                    this.stableFrames++;
-                    if (this.stableFrames >= 3) {
-                        this.autoCapture();
-                    }
-                } else {
-                    this.stableFrames = 0;
-                }
             },
 
             detectColorsFromFrame(ctx, width, height) {
@@ -1146,95 +1085,22 @@
                 const cellHeight = height * 0.6 / gridSize;
                 const startX = width * 0.2;
                 const startY = height * 0.2;
-                
+
                 for (let i = 0; i < gridSize; i++) {
                     for (let j = 0; j < gridSize; j++) {
-                        const samples = [];
-                        for (let s = 0; s < 5; s++) {
-                            const offsetX = (Math.random() - 0.5) * cellWidth * 0.6;
-                            const offsetY = (Math.random() - 0.5) * cellHeight * 0.6;
-                            const x = startX + j * cellWidth + cellWidth / 2 + offsetX;
-                            const y = startY + i * cellHeight + cellHeight / 2 + offsetY;
-                            const pixel = ctx.getImageData(x, y, 1, 1).data;
-                            samples.push([pixel[0], pixel[1], pixel[2]]);
-                        }
-                        
-                        const medianRgb = [
-                            this.median(samples.map(s => s[0])),
-                            this.median(samples.map(s => s[1])),
-                            this.median(samples.map(s => s[2]))
-                        ];
-                        
-                        const result = this.matchColor(medianRgb);
+                        // Sample center pixel of each cell only
+                        const x = Math.floor(startX + j * cellWidth + cellWidth / 2);
+                        const y = Math.floor(startY + i * cellHeight + cellHeight / 2);
+                        const pixel = ctx.getImageData(x, y, 1, 1).data;
+                        const rgb = [pixel[0], pixel[1], pixel[2]];
+
+                        const result = this.matchColor(rgb);
                         colors.push(result.color);
                         confidence.push(result.confidence);
                     }
                 }
-                
+
                 return { colors, confidence };
-            },
-
-            median(arr) {
-                const sorted = [...arr].sort((a, b) => a - b);
-                const mid = Math.floor(sorted.length / 2);
-                return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-            },
-
-            getAveragedColors() {
-                // Vote-based color averaging across buffer
-                const averaged = [];
-                for (let i = 0; i < 9; i++) {
-                    const colorVotes = {};
-                    this.colorBuffer.forEach(frame => {
-                        const color = frame.colors[i];
-                        if (color) {
-                            colorVotes[color] = (colorVotes[color] || 0) + 1;
-                        }
-                    });
-
-                    // Pick color with most votes
-                    let maxVotes = 0;
-                    let winningColor = null;
-                    Object.entries(colorVotes).forEach(([color, votes]) => {
-                        if (votes > maxVotes) {
-                            maxVotes = votes;
-                            winningColor = color;
-                        }
-                    });
-                    averaged[i] = winningColor;
-                }
-                return averaged;
-            },
-
-            getAveragedConfidence() {
-                // Average confidence scores across buffer
-                const averaged = Array(9).fill(0);
-                for (let i = 0; i < 9; i++) {
-                    let sum = 0;
-                    let count = 0;
-                    this.colorBuffer.forEach(frame => {
-                        if (frame.confidence[i] !== undefined) {
-                            sum += frame.confidence[i];
-                            count++;
-                        }
-                    });
-                    averaged[i] = count > 0 ? sum / count : 0;
-                }
-                return averaged;
-            },
-
-            checkColorStability() {
-                // Check if colors are stable across last few frames
-                if (this.colorBuffer.length < 3) return false;
-
-                const recentFrames = this.colorBuffer.slice(-3);
-                for (let i = 0; i < 9; i++) {
-                    const colors = recentFrames.map(frame => frame.colors[i]);
-                    const uniqueColors = new Set(colors.filter(c => c !== null));
-                    // If more than one color detected for same square, not stable
-                    if (uniqueColors.size > 1) return false;
-                }
-                return true;
             },
 
             updateLightingIndicator(lighting) {
@@ -1303,21 +1169,6 @@
                 });
             },
 
-            autoCapture() {
-                if (!this.isAutoCapturing) {
-                    this.isAutoCapturing = true;
-                    document.getElementById('capture-btn').textContent = '⏳ Auto-capturing...';
-                    document.getElementById('capture-btn').disabled = true;
-                    
-                    setTimeout(() => {
-                        this.captureFrame();
-                        this.isAutoCapturing = false;
-                        document.getElementById('capture-btn').textContent = '📸 Capture Face';
-                        document.getElementById('capture-btn').disabled = false;
-                    }, 1000);
-                }
-            },
-
             captureFrame() {
                 const faceKey = this.FACE_KEYS[this.currentFace];
                 this.cubeState[faceKey] = [...this.detectedColors];
@@ -1327,9 +1178,6 @@
                     this.updateScanningUI();
                     this.detectedColors = Array(9).fill(null);
                     this.detectedConfidence = Array(9).fill(0);
-                    // Reset temporal averaging buffers for next face
-                    this.colorBuffer = [];
-                    this.stableFrames = 0;
                 } else {
                     this.stopScanningCamera();
                     this.startEditing();
