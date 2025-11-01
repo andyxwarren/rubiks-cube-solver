@@ -16,37 +16,47 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+            height: 100vh;
+            padding: 8px;
+            overflow: hidden;
         }
 
         .app-container {
             max-width: 500px;
+            height: 100%;
             margin: 0 auto;
             background: white;
-            border-radius: 20px;
+            border-radius: 15px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
 
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
+            padding: 10px 15px;
             text-align: center;
+            flex-shrink: 0;
         }
 
         .header h1 {
-            font-size: 24px;
-            margin-bottom: 5px;
+            font-size: 20px;
+            margin-bottom: 3px;
         }
 
         .header p {
-            font-size: 14px;
+            font-size: 12px;
             opacity: 0.9;
         }
 
         .content {
-            padding: 20px;
+            padding: 12px;
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
         .screen {
@@ -61,13 +71,13 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 15px 30px;
-            border-radius: 10px;
-            font-size: 16px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
             width: 100%;
-            margin: 10px 0;
+            margin: 6px 0;
             transition: transform 0.2s, box-shadow 0.2s;
         }
 
@@ -91,11 +101,11 @@
         }
 
         .btn-small {
-            padding: 10px 20px;
-            font-size: 14px;
+            padding: 8px 16px;
+            font-size: 13px;
             width: auto;
             display: inline-block;
-            margin: 5px;
+            margin: 4px;
         }
 
         .camera-container {
@@ -103,9 +113,10 @@
             width: 100%;
             aspect-ratio: 1;
             background: #000;
-            border-radius: 10px;
+            border-radius: 8px;
             overflow: hidden;
-            margin: 20px 0;
+            margin: 8px 0;
+            max-height: 45vh;
         }
 
         video {
@@ -128,8 +139,8 @@
         }
 
         .grid-square {
-            background: rgba(255, 255, 255, 0.3);
-            border: 2px solid white;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.6);
             border-radius: 5px;
             display: flex;
             align-items: center;
@@ -172,31 +183,32 @@
 
         .instruction {
             text-align: center;
-            padding: 15px;
+            padding: 10px;
             background: #f8f9fa;
-            border-radius: 10px;
-            margin: 15px 0;
+            border-radius: 8px;
+            margin: 8px 0;
         }
 
         .instruction h3 {
             color: #667eea;
-            margin-bottom: 5px;
-            font-size: 18px;
+            margin-bottom: 4px;
+            font-size: 16px;
         }
 
         .instruction p {
             color: #666;
-            font-size: 14px;
+            font-size: 13px;
+            line-height: 1.4;
         }
 
         .lighting-indicator {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px;
+            gap: 8px;
+            padding: 8px;
             background: rgba(255,255,255,0.1);
-            border-radius: 8px;
-            margin: 10px 0;
+            border-radius: 6px;
+            margin: 6px 0;
             color: white;
         }
 
@@ -215,11 +227,11 @@
         }
 
         .progress-bar {
-            height: 8px;
+            height: 6px;
             background: #f0f0f0;
             border-radius: 4px;
             overflow: hidden;
-            margin: 15px 0;
+            margin: 8px 0;
         }
 
         .progress-fill {
@@ -231,8 +243,8 @@
         .color-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin: 20px 0;
+            gap: 8px;
+            margin: 10px 0;
         }
 
         .color-square {
@@ -311,9 +323,9 @@
 
         .cube-3d-container {
             width: 100%;
-            height: 300px;
-            margin: 20px 0;
-            border-radius: 10px;
+            height: 220px;
+            margin: 8px 0;
+            border-radius: 8px;
             overflow: hidden;
             background: #1a1a1a;
         }
@@ -398,21 +410,21 @@
 
         .feature-list {
             text-align: left;
-            margin: 20px 0;
+            margin: 10px 0;
         }
 
         .feature-item {
             display: flex;
             align-items: center;
-            margin: 15px 0;
-            padding: 15px;
+            margin: 8px 0;
+            padding: 10px;
             background: #f8f9fa;
-            border-radius: 10px;
+            border-radius: 8px;
         }
 
         .feature-icon {
-            font-size: 24px;
-            margin-right: 15px;
+            font-size: 20px;
+            margin-right: 10px;
         }
 
         .confidence-badge {
@@ -439,38 +451,38 @@
         <div class="content">
             <!-- Home Screen -->
             <div id="home-screen" class="screen active">
-                <div style="text-align: center; padding: 40px 20px;">
-                    <h2 style="margin-bottom: 15px;">Welcome!</h2>
-                    <p style="color: #666; margin-bottom: 30px;">
+                <div style="text-align: center; padding: 15px 10px;">
+                    <h2 style="margin-bottom: 10px; font-size: 22px;">Welcome!</h2>
+                    <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
                         Solve any Rubik's Cube with enhanced features
                     </p>
                     <div class="feature-list">
                         <div class="feature-item">
                             <div class="feature-icon">🎨</div>
                             <div>
-                                <h4 style="margin-bottom: 5px;">Color Calibration</h4>
-                                <p style="font-size: 14px; color: #666; margin: 0;">Adapt to your specific cube</p>
+                                <h4 style="margin-bottom: 3px; font-size: 14px;">Color Calibration</h4>
+                                <p style="font-size: 12px; color: #666; margin: 0;">Adapt to your specific cube</p>
                             </div>
                         </div>
                         <div class="feature-item">
                             <div class="feature-icon">📸</div>
                             <div>
-                                <h4 style="margin-bottom: 5px;">Smart Detection</h4>
-                                <p style="font-size: 14px; color: #666; margin: 0;">HSV-based with confidence scores</p>
+                                <h4 style="margin-bottom: 3px; font-size: 14px;">Smart Detection</h4>
+                                <p style="font-size: 12px; color: #666; margin: 0;">HSV-based with confidence scores</p>
                             </div>
                         </div>
                         <div class="feature-item">
                             <div class="feature-icon">🎲</div>
                             <div>
-                                <h4 style="margin-bottom: 5px;">3D Visualization</h4>
-                                <p style="font-size: 14px; color: #666; margin: 0;">Interactive cube rendering</p>
+                                <h4 style="margin-bottom: 3px; font-size: 14px;">3D Visualization</h4>
+                                <p style="font-size: 12px; color: #666; margin: 0;">Interactive cube rendering</p>
                             </div>
                         </div>
                         <div class="feature-item">
                             <div class="feature-icon">🧩</div>
                             <div>
-                                <h4 style="margin-bottom: 5px;">Real Solver</h4>
-                                <p style="font-size: 14px; color: #666; margin: 0;">Actual solving algorithm</p>
+                                <h4 style="margin-bottom: 3px; font-size: 14px;">Real Solver</h4>
+                                <p style="font-size: 12px; color: #666; margin: 0;">Actual solving algorithm</p>
                             </div>
                         </div>
                     </div>
@@ -482,8 +494,11 @@
             <div id="calibration-screen" class="screen">
                 <div class="instruction">
                     <h3>Color Calibration</h3>
-                    <p>Hold the <span id="current-color-name">White</span> center in the circle</p>
-                    <p style="font-size: 12px; margin-top: 10px;">
+                    <p>Center the <span id="current-color-name">White</span> center piece of your cube in the circle</p>
+                    <p style="font-size: 11px; margin-top: 6px; opacity: 0.8;">
+                        The cube face should be visible with the <span id="current-color-name-2">white</span> center piece centered in the circle
+                    </p>
+                    <p style="font-size: 11px; margin-top: 4px;">
                         Step <span id="calibration-step">1</span> of 6
                     </p>
                 </div>
@@ -554,7 +569,7 @@
 
             <!-- Solving Screen -->
             <div id="solving-screen" class="screen">
-                <div id="solving-loading" style="text-align: center; padding: 40px;">
+                <div id="solving-loading" style="text-align: center; padding: 20px;">
                     <div class="spinner"></div>
                     <p>Computing optimal solution...</p>
                 </div>
@@ -598,9 +613,9 @@
 
                 <div id="cube-3d-guided" class="cube-3d-container"></div>
 
-                <div class="solution-step" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 30px;">
-                    <h2 style="fontSize: 48px; text-align: center; margin: 20px 0; color: white;" id="current-move">R</h2>
-                    <p style="fontSize: 18px; text-align: center; color: white; opacity: 0.95;" id="current-description">Rotate RIGHT face clockwise</p>
+                <div class="solution-step" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 20px;">
+                    <h2 style="font-size: 40px; text-align: center; margin: 12px 0; color: white;" id="current-move">R</h2>
+                    <p style="font-size: 16px; text-align: center; color: white; opacity: 0.95;" id="current-description">Rotate RIGHT face clockwise</p>
                 </div>
 
                 <div class="instruction">
@@ -622,10 +637,10 @@
 
             <!-- Complete Screen -->
             <div id="complete-screen" class="screen">
-                <div style="text-align: center; padding: 40px 20px;">
-                    <div style="font-size: 80px; margin-bottom: 20px;">🎉</div>
-                    <h2 style="margin-bottom: 15px;">Congratulations!</h2>
-                    <p style="color: #666; margin-bottom: 30px;">
+                <div style="text-align: center; padding: 20px 15px;">
+                    <div style="font-size: 60px; margin-bottom: 15px;">🎉</div>
+                    <h2 style="margin-bottom: 12px; font-size: 22px;">Congratulations!</h2>
+                    <p style="color: #666; margin-bottom: 20px; font-size: 14px;">
                         You've successfully solved your Rubik's Cube!
                     </p>
                     <div class="alert alert-success">Great job! You followed all the steps correctly.</div>
@@ -768,11 +783,12 @@
                 const colorKey = this.calibrationColors[this.currentCalibrationIndex];
                 const color = this.COLORS[colorKey];
                 document.getElementById('current-color-name').textContent = color.name;
+                document.getElementById('current-color-name-2').textContent = color.name.toLowerCase();
                 document.getElementById('calibration-step').textContent = this.currentCalibrationIndex + 1;
                 document.getElementById('calibration-target').textContent = color.name;
                 document.getElementById('calibration-target').style.borderColor = color.hex;
                 document.getElementById('calibration-btn').textContent = `Capture ${color.name}`;
-                document.getElementById('calibration-progress').style.width = 
+                document.getElementById('calibration-progress').style.width =
                     ((this.currentCalibrationIndex / 6) * 100) + '%';
             },
 
