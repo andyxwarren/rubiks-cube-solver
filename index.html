@@ -434,6 +434,124 @@
             background: rgba(255,255,255,0.3);
         }
 
+        .orientation-guide {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 8px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .cube-diagram {
+            width: 80px;
+            height: 80px;
+            position: relative;
+            transform-style: preserve-3d;
+        }
+
+        .cube-face-visual {
+            width: 60px;
+            height: 60px;
+            border: 3px solid #333;
+            border-radius: 4px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 2px;
+            padding: 2px;
+        }
+
+        .cube-sticker {
+            border-radius: 2px;
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .orientation-arrow {
+            position: absolute;
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .arrow-top {
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .orientation-text {
+            flex: 1;
+            text-align: left;
+        }
+
+        .orientation-text h4 {
+            margin: 0 0 4px 0;
+            color: #667eea;
+            font-size: 14px;
+        }
+
+        .orientation-text p {
+            margin: 0;
+            font-size: 11px;
+            color: #666;
+            line-height: 1.3;
+        }
+
+        .top-indicator {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .detection-preview {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin: 8px 0;
+            flex-wrap: wrap;
+        }
+
+        .color-chip {
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            border: 2px solid #ddd;
+            position: relative;
+        }
+
+        .color-chip.confident {
+            border-color: #4ade80;
+            border-width: 3px;
+        }
+
+        .color-chip-label {
+            position: absolute;
+            bottom: -16px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            color: #666;
+            white-space: nowrap;
+        }
+
         @media (max-width: 600px) {
             .app-container {
                 border-radius: 0;
@@ -519,22 +637,32 @@
 
             <!-- Scanning Screen -->
             <div id="scanning-screen" class="screen">
-                <div class="instruction">
-                    <h3>Scan <span id="scan-face-name">Front</span> Face</h3>
-                    <p>Align the cube face with the grid</p>
-                </div>
-
-                <div id="lighting-indicator" class="lighting-indicator">
-                    <span id="lighting-text" style="font-size: 12px;">Analyzing...</span>
-                    <div class="lighting-bar">
-                        <div id="lighting-fill" class="lighting-fill" style="width: 0%;"></div>
+                <div id="orientation-guide" class="orientation-guide">
+                    <div class="cube-diagram">
+                        <div id="cube-face-diagram" class="cube-face-visual"></div>
+                        <div class="orientation-arrow arrow-top">▲</div>
+                    </div>
+                    <div class="orientation-text">
+                        <h4 id="orientation-title">Scanning Front Face</h4>
+                        <p id="orientation-instruction">Hold cube with white face toward camera</p>
+                        <p id="orientation-reference" style="margin-top: 2px; font-weight: 600;"></p>
                     </div>
                 </div>
 
                 <div class="camera-container">
                     <video id="scan-video" autoplay playsinline></video>
                     <canvas id="scan-canvas" style="display: none;"></canvas>
+                    <div class="top-indicator">▲ TOP</div>
                     <div id="scan-grid" class="grid-overlay"></div>
+                </div>
+
+                <div id="detection-preview" class="detection-preview"></div>
+
+                <div id="lighting-indicator" class="lighting-indicator">
+                    <span id="lighting-text" style="font-size: 11px;">Analyzing...</span>
+                    <div class="lighting-bar">
+                        <div id="lighting-fill" class="lighting-fill" style="width: 0%;"></div>
+                    </div>
                 </div>
 
                 <button class="btn" onclick="app.captureFrame()" id="capture-btn">📸 Capture Face</button>
@@ -862,6 +990,9 @@
             // Scanning
             detectedColors: Array(9).fill(null),
             detectedConfidence: Array(9).fill(0),
+            colorBuffer: [], // Buffer for temporal averaging
+            maxBufferSize: 5, // Number of frames to average
+            stableFrames: 0, // Counter for stable detection
 
             async startScanning() {
                 this.showScreen('scanning-screen');
@@ -895,7 +1026,63 @@
             },
 
             updateScanningUI() {
-                document.getElementById('scan-face-name').textContent = this.FACE_NAMES[this.currentFace];
+                const orientations = [
+                    { // Face 0: Front (White)
+                        title: 'Scanning Front Face',
+                        instruction: 'Hold white face toward camera',
+                        reference: 'Green edge should be at TOP ▲',
+                        colors: ['G','G','G','W','W','W','W','W','W']
+                    },
+                    { // Face 1: Back (Yellow)
+                        title: 'Scanning Back Face',
+                        instruction: 'Flip cube over - yellow face toward camera',
+                        reference: 'Blue edge should be at TOP ▲',
+                        colors: ['B','B','B','Y','Y','Y','Y','Y','Y']
+                    },
+                    { // Face 2: Up (Red)
+                        title: 'Scanning Top Face',
+                        instruction: 'Tilt cube - red face on top toward camera',
+                        reference: 'White edge should be at TOP ▲',
+                        colors: ['W','W','W','R','R','R','R','R','R']
+                    },
+                    { // Face 3: Down (Orange)
+                        title: 'Scanning Bottom Face',
+                        instruction: 'Tilt cube - orange face on bottom toward camera',
+                        reference: 'White edge should be at TOP ▲',
+                        colors: ['W','W','W','O','O','O','O','O','O']
+                    },
+                    { // Face 4: Left (Blue)
+                        title: 'Scanning Left Face',
+                        instruction: 'Turn cube left - blue face toward camera',
+                        reference: 'White edge should be at TOP ▲',
+                        colors: ['W','W','W','B','B','B','B','B','B']
+                    },
+                    { // Face 5: Right (Green)
+                        title: 'Scanning Right Face',
+                        instruction: 'Turn cube right - green face toward camera',
+                        reference: 'White edge should be at TOP ▲',
+                        colors: ['W','W','W','G','G','G','G','G','G']
+                    }
+                ];
+
+                const current = orientations[this.currentFace];
+                document.getElementById('orientation-title').textContent = current.title;
+                document.getElementById('orientation-instruction').textContent = current.instruction;
+                document.getElementById('orientation-reference').textContent = current.reference;
+
+                // Update cube diagram
+                const diagram = document.getElementById('cube-face-diagram');
+                diagram.innerHTML = '';
+                current.colors.forEach((colorKey, i) => {
+                    const sticker = document.createElement('div');
+                    sticker.className = 'cube-sticker';
+                    sticker.style.background = this.COLORS[colorKey].hex;
+                    // Highlight top edge (positions 0, 1, 2)
+                    if (i <= 2) {
+                        sticker.style.border = '2px solid #667eea';
+                    }
+                    diagram.appendChild(sticker);
+                });
             },
 
             analyzeFrame() {
@@ -916,15 +1103,42 @@
                 
                 // Detect colors
                 const result = this.detectColorsFromFrame(ctx, canvas.width, canvas.height);
-                this.detectedColors = result.colors;
-                this.detectedConfidence = result.confidence;
-                
+
+                // Add to buffer for temporal averaging
+                this.colorBuffer.push({
+                    colors: result.colors,
+                    confidence: result.confidence,
+                    timestamp: Date.now()
+                });
+
+                // Keep buffer size limited
+                if (this.colorBuffer.length > this.maxBufferSize) {
+                    this.colorBuffer.shift();
+                }
+
+                // Average colors across buffer
+                if (this.colorBuffer.length >= 3) {
+                    this.detectedColors = this.getAveragedColors();
+                    this.detectedConfidence = this.getAveragedConfidence();
+                } else {
+                    this.detectedColors = result.colors;
+                    this.detectedConfidence = result.confidence;
+                }
+
                 // Update grid display
                 this.updateGridDisplay();
-                
-                // Auto-capture if high confidence
-                if (result.confidence.every(c => c > 70)) {
-                    this.autoCapture();
+
+                // Auto-capture if high confidence AND stable across frames
+                const isStable = this.colorBuffer.length >= 4 && this.checkColorStability();
+                const isConfident = this.detectedConfidence.every(c => c > 85);
+
+                if (isStable && isConfident) {
+                    this.stableFrames++;
+                    if (this.stableFrames >= 3) {
+                        this.autoCapture();
+                    }
+                } else {
+                    this.stableFrames = 0;
                 }
             },
 
@@ -970,6 +1184,63 @@
                 return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
             },
 
+            getAveragedColors() {
+                // Vote-based color averaging across buffer
+                const averaged = [];
+                for (let i = 0; i < 9; i++) {
+                    const colorVotes = {};
+                    this.colorBuffer.forEach(frame => {
+                        const color = frame.colors[i];
+                        if (color) {
+                            colorVotes[color] = (colorVotes[color] || 0) + 1;
+                        }
+                    });
+
+                    // Pick color with most votes
+                    let maxVotes = 0;
+                    let winningColor = null;
+                    Object.entries(colorVotes).forEach(([color, votes]) => {
+                        if (votes > maxVotes) {
+                            maxVotes = votes;
+                            winningColor = color;
+                        }
+                    });
+                    averaged[i] = winningColor;
+                }
+                return averaged;
+            },
+
+            getAveragedConfidence() {
+                // Average confidence scores across buffer
+                const averaged = Array(9).fill(0);
+                for (let i = 0; i < 9; i++) {
+                    let sum = 0;
+                    let count = 0;
+                    this.colorBuffer.forEach(frame => {
+                        if (frame.confidence[i] !== undefined) {
+                            sum += frame.confidence[i];
+                            count++;
+                        }
+                    });
+                    averaged[i] = count > 0 ? sum / count : 0;
+                }
+                return averaged;
+            },
+
+            checkColorStability() {
+                // Check if colors are stable across last few frames
+                if (this.colorBuffer.length < 3) return false;
+
+                const recentFrames = this.colorBuffer.slice(-3);
+                for (let i = 0; i < 9; i++) {
+                    const colors = recentFrames.map(frame => frame.colors[i]);
+                    const uniqueColors = new Set(colors.filter(c => c !== null));
+                    // If more than one color detected for same square, not stable
+                    if (uniqueColors.size > 1) return false;
+                }
+                return true;
+            },
+
             updateLightingIndicator(lighting) {
                 const messages = {
                     too_dark: '⚠️ Lighting too dark',
@@ -988,12 +1259,52 @@
                     if (this.detectedColors[i]) {
                         square.style.background = this.COLORS[this.detectedColors[i]].hex;
                         square.classList.add('detected');
-                        if (this.detectedConfidence[i] > 70) {
+                        if (this.detectedConfidence[i] > 80) {
                             square.classList.add('high-confidence');
+                        } else {
+                            square.classList.remove('high-confidence');
                         }
                         square.innerHTML = `<span class="confidence-badge">${Math.round(this.detectedConfidence[i])}%</span>`;
                     }
                 }
+
+                // Update color preview chips
+                this.updateColorPreview();
+            },
+
+            updateColorPreview() {
+                const preview = document.getElementById('detection-preview');
+                preview.innerHTML = '';
+
+                // Show detected colors as chips
+                const colorCounts = {};
+                this.detectedColors.forEach(color => {
+                    if (color) {
+                        colorCounts[color] = (colorCounts[color] || 0) + 1;
+                    }
+                });
+
+                Object.entries(colorCounts).forEach(([colorKey, count]) => {
+                    const chip = document.createElement('div');
+                    chip.className = 'color-chip';
+                    chip.style.background = this.COLORS[colorKey].hex;
+
+                    // Check if this color has high confidence
+                    const avgConfidence = this.detectedColors.reduce((sum, c, i) => {
+                        return sum + (c === colorKey ? this.detectedConfidence[i] : 0);
+                    }, 0) / count;
+
+                    if (avgConfidence > 80) {
+                        chip.classList.add('confident');
+                    }
+
+                    const label = document.createElement('div');
+                    label.className = 'color-chip-label';
+                    label.textContent = `${this.COLORS[colorKey].name.charAt(0)}`;
+                    chip.appendChild(label);
+
+                    preview.appendChild(chip);
+                });
             },
 
             autoCapture() {
@@ -1014,12 +1325,15 @@
             captureFrame() {
                 const faceKey = this.FACE_KEYS[this.currentFace];
                 this.cubeState[faceKey] = [...this.detectedColors];
-                
+
                 if (this.currentFace < 5) {
                     this.currentFace++;
                     this.updateScanningUI();
                     this.detectedColors = Array(9).fill(null);
                     this.detectedConfidence = Array(9).fill(0);
+                    // Reset temporal averaging buffers for next face
+                    this.colorBuffer = [];
+                    this.stableFrames = 0;
                 } else {
                     this.stopScanningCamera();
                     this.startEditing();
