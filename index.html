@@ -139,7 +139,7 @@
         }
 
         .grid-square {
-            background: rgba(255, 255, 255, 0.1);
+            background: transparent;
             border: 2px solid rgba(255, 255, 255, 0.6);
             border-radius: 5px;
             display: flex;
@@ -148,14 +148,32 @@
             font-size: 10px;
             color: white;
             font-weight: bold;
+            position: relative;
+            transition: all 0.3s ease;
         }
 
         .grid-square.detected {
-            border-color: #4ade80;
+            border-width: 3px;
         }
 
         .grid-square.high-confidence {
-            border-width: 3px;
+            border-width: 4px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .grid-square.low-confidence {
+            animation: shake 0.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            75% { transform: translateX(2px); }
         }
 
         .calibration-target {
@@ -525,6 +543,43 @@
             gap: 3px;
         }
 
+        .auto-capture-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(76, 222, 128, 0.95);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            font-size: 48px;
+            font-weight: bold;
+            z-index: 20;
+            animation: countdown-pulse 1s ease-in-out;
+        }
+
+        @keyframes countdown-pulse {
+            0% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .status-message {
+            position: absolute;
+            bottom: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 10;
+            text-align: center;
+            max-width: 80%;
+        }
+
         .detection-preview {
             display: flex;
             justify-content: center;
@@ -652,6 +707,8 @@
                     <canvas id="scan-canvas" style="display: none;"></canvas>
                     <div class="top-indicator">▲ TOP</div>
                     <div id="scan-grid" class="grid-overlay"></div>
+                    <div id="auto-capture-countdown" class="auto-capture-indicator" style="display: none;">3</div>
+                    <div id="status-message" class="status-message">Hold steady and align cube with grid...</div>
                 </div>
 
                 <div id="detection-preview" class="detection-preview"></div>
@@ -960,6 +1017,10 @@
             // Scanning
             detectedColors: Array(9).fill(null),
             detectedConfidence: Array(9).fill(0),
+            stabilityCounter: 0,
+            stabilityRequired: 5, // 5 consecutive good frames (1 second at 200ms intervals)
+            autoCaptureCountdown: 0,
+            lastStableColors: null,
 
             async startScanning() {
                 this.showScreen('scanning-screen');
@@ -995,39 +1056,39 @@
             updateScanningUI() {
                 const orientations = [
                     { // Face 0: Front (White)
-                        title: 'Scanning Front Face',
-                        instruction: 'Hold white face toward camera',
-                        reference: 'Green edge should be at TOP ▲',
+                        title: 'Face 1/6: White Center',
+                        instruction: '1. Point WHITE CENTER toward camera',
+                        reference: '2. Place GREEN STICKERS at the TOP edge (see diagram)',
                         colors: ['G','G','G','W','W','W','W','W','W']
                     },
                     { // Face 1: Back (Yellow)
-                        title: 'Scanning Back Face',
-                        instruction: 'Flip cube over - yellow face toward camera',
-                        reference: 'Blue edge should be at TOP ▲',
+                        title: 'Face 2/6: Yellow Center',
+                        instruction: '1. Flip cube - point YELLOW CENTER toward camera',
+                        reference: '2. Place BLUE STICKERS at the TOP edge (see diagram)',
                         colors: ['B','B','B','Y','Y','Y','Y','Y','Y']
                     },
                     { // Face 2: Up (Red)
-                        title: 'Scanning Top Face',
-                        instruction: 'Tilt cube - red face on top toward camera',
-                        reference: 'White edge should be at TOP ▲',
+                        title: 'Face 3/6: Red Center',
+                        instruction: '1. Rotate - point RED CENTER toward camera',
+                        reference: '2. Place WHITE STICKERS at the TOP edge (see diagram)',
                         colors: ['W','W','W','R','R','R','R','R','R']
                     },
                     { // Face 3: Down (Orange)
-                        title: 'Scanning Bottom Face',
-                        instruction: 'Tilt cube - orange face on bottom toward camera',
-                        reference: 'White edge should be at TOP ▲',
+                        title: 'Face 4/6: Orange Center',
+                        instruction: '1. Rotate - point ORANGE CENTER toward camera',
+                        reference: '2. Place WHITE STICKERS at the TOP edge (see diagram)',
                         colors: ['W','W','W','O','O','O','O','O','O']
                     },
                     { // Face 4: Left (Blue)
-                        title: 'Scanning Left Face',
-                        instruction: 'Turn cube left - blue face toward camera',
-                        reference: 'White edge should be at TOP ▲',
+                        title: 'Face 5/6: Blue Center',
+                        instruction: '1. Rotate - point BLUE CENTER toward camera',
+                        reference: '2. Place WHITE STICKERS at the TOP edge (see diagram)',
                         colors: ['W','W','W','B','B','B','B','B','B']
                     },
                     { // Face 5: Right (Green)
-                        title: 'Scanning Right Face',
-                        instruction: 'Turn cube right - green face toward camera',
-                        reference: 'White edge should be at TOP ▲',
+                        title: 'Face 6/6: Green Center',
+                        instruction: '1. Rotate - point GREEN CENTER toward camera',
+                        reference: '2. Place WHITE STICKERS at the TOP edge (see diagram)',
                         colors: ['W','W','W','G','G','G','G','G','G']
                     }
                 ];
@@ -1075,32 +1136,139 @@
 
                 // Update grid display with detected colors
                 this.updateGridDisplay();
+
+                // Check for auto-capture
+                this.checkAutoCapture();
+            },
+
+            checkAutoCapture() {
+                // Check if all squares have good confidence (>70%)
+                const allConfident = this.detectedConfidence.every(conf => conf > 70);
+                const avgConfidence = this.detectedConfidence.reduce((a, b) => a + b, 0) / 9;
+
+                if (allConfident && this.detectedColors.every(c => c !== null)) {
+                    // Check if colors are stable (same as last frame)
+                    const colorsMatch = this.lastStableColors &&
+                        this.detectedColors.every((c, i) => c === this.lastStableColors[i]);
+
+                    if (colorsMatch) {
+                        this.stabilityCounter++;
+                    } else {
+                        this.stabilityCounter = 1;
+                        this.lastStableColors = [...this.detectedColors];
+                    }
+
+                    // Update status message
+                    if (this.stabilityCounter >= this.stabilityRequired) {
+                        // Start countdown
+                        const countdown = Math.min(3, Math.ceil((this.stabilityCounter - this.stabilityRequired + 1) * 0.6));
+                        if (countdown <= 3 && countdown >= 1) {
+                            this.showCountdown(countdown);
+                            if (countdown === 1) {
+                                // Trigger auto-capture
+                                setTimeout(() => this.captureFrame(), 500);
+                            }
+                        }
+                        this.updateStatusMessage(`Auto-capturing in ${countdown}...`, 'good');
+                    } else {
+                        this.hideCountdown();
+                        this.updateStatusMessage(`Hold steady... ${Math.round(avgConfidence)}% confidence`, 'stable');
+                    }
+                } else {
+                    // Reset stability
+                    this.stabilityCounter = 0;
+                    this.lastStableColors = null;
+                    this.hideCountdown();
+
+                    // Update status with helpful guidance
+                    if (avgConfidence < 50) {
+                        this.updateStatusMessage('Improve lighting or move closer to cube', 'low');
+                    } else if (avgConfidence < 70) {
+                        this.updateStatusMessage(`Hold steady... ${Math.round(avgConfidence)}% confidence`, 'medium');
+                    } else {
+                        this.updateStatusMessage('Detecting colors...', 'detecting');
+                    }
+                }
+            },
+
+            showCountdown(number) {
+                const countdown = document.getElementById('auto-capture-countdown');
+                countdown.textContent = number;
+                countdown.style.display = 'block';
+                // Restart animation
+                countdown.style.animation = 'none';
+                setTimeout(() => { countdown.style.animation = 'countdown-pulse 1s ease-in-out'; }, 10);
+            },
+
+            hideCountdown() {
+                const countdown = document.getElementById('auto-capture-countdown');
+                countdown.style.display = 'none';
+            },
+
+            updateStatusMessage(message, state) {
+                const statusEl = document.getElementById('status-message');
+                statusEl.textContent = message;
+
+                // Update background color based on state
+                const colors = {
+                    'good': 'rgba(76, 222, 128, 0.9)',
+                    'stable': 'rgba(102, 126, 234, 0.9)',
+                    'medium': 'rgba(251, 191, 36, 0.9)',
+                    'low': 'rgba(239, 68, 68, 0.9)',
+                    'detecting': 'rgba(0, 0, 0, 0.7)'
+                };
+                statusEl.style.background = colors[state] || colors['detecting'];
             },
 
             detectColorsFromFrame(ctx, width, height) {
                 const colors = [];
                 const confidence = [];
                 const gridSize = 3;
-                const cellWidth = width * 0.6 / gridSize;
-                const cellHeight = height * 0.6 / gridSize;
-                const startX = width * 0.2;
-                const startY = height * 0.2;
+                const cellWidth = width * 0.7 / gridSize;  // Match CSS grid at 70%
+                const cellHeight = height * 0.7 / gridSize;
+                const startX = width * 0.15;  // Center the 70% grid
+                const startY = height * 0.15;
 
                 for (let i = 0; i < gridSize; i++) {
                     for (let j = 0; j < gridSize; j++) {
-                        // Sample center pixel of each cell only
-                        const x = Math.floor(startX + j * cellWidth + cellWidth / 2);
-                        const y = Math.floor(startY + i * cellHeight + cellHeight / 2);
-                        const pixel = ctx.getImageData(x, y, 1, 1).data;
-                        const rgb = [pixel[0], pixel[1], pixel[2]];
+                        // Sample 9 pixels in a 3x3 pattern within each cell
+                        const samples = [];
+                        const centerX = startX + j * cellWidth + cellWidth / 2;
+                        const centerY = startY + i * cellHeight + cellHeight / 2;
+                        const sampleRadius = Math.min(cellWidth, cellHeight) * 0.25;
 
-                        const result = this.matchColor(rgb);
+                        for (let sy = -1; sy <= 1; sy++) {
+                            for (let sx = -1; sx <= 1; sx++) {
+                                const x = Math.floor(centerX + sx * sampleRadius);
+                                const y = Math.floor(centerY + sy * sampleRadius);
+                                const pixel = ctx.getImageData(x, y, 1, 1).data;
+                                samples.push([pixel[0], pixel[1], pixel[2]]);
+                            }
+                        }
+
+                        // Calculate median RGB to reduce noise
+                        const medianRgb = this.calculateMedianRgb(samples);
+                        const result = this.matchColor(medianRgb);
                         colors.push(result.color);
                         confidence.push(result.confidence);
                     }
                 }
 
                 return { colors, confidence };
+            },
+
+            calculateMedianRgb(samples) {
+                // Get median for each channel separately
+                const rValues = samples.map(s => s[0]).sort((a, b) => a - b);
+                const gValues = samples.map(s => s[1]).sort((a, b) => a - b);
+                const bValues = samples.map(s => s[2]).sort((a, b) => a - b);
+
+                const mid = Math.floor(samples.length / 2);
+                return [
+                    rValues[mid],
+                    gValues[mid],
+                    bValues[mid]
+                ];
             },
 
             updateLightingIndicator(lighting) {
@@ -1119,13 +1287,21 @@
                 for (let i = 0; i < 9; i++) {
                     const square = document.getElementById(`grid-square-${i}`);
                     if (this.detectedColors[i]) {
-                        square.style.background = this.COLORS[this.detectedColors[i]].hex;
+                        // Keep background transparent, use colored border and glow
+                        const color = this.COLORS[this.detectedColors[i]].hex;
+                        square.style.background = 'transparent';
+                        square.style.borderColor = color;
+                        square.style.boxShadow = `0 0 15px ${color}, inset 0 0 10px ${color}33`;
                         square.classList.add('detected');
+
+                        // Add confidence-based animations
+                        square.classList.remove('high-confidence', 'low-confidence');
                         if (this.detectedConfidence[i] > 80) {
                             square.classList.add('high-confidence');
-                        } else {
-                            square.classList.remove('high-confidence');
+                        } else if (this.detectedConfidence[i] < 60) {
+                            square.classList.add('low-confidence');
                         }
+
                         square.innerHTML = `<span class="confidence-badge">${Math.round(this.detectedConfidence[i])}%</span>`;
                     }
                 }
@@ -1173,11 +1349,17 @@
                 const faceKey = this.FACE_KEYS[this.currentFace];
                 this.cubeState[faceKey] = [...this.detectedColors];
 
+                // Reset detection state
+                this.detectedColors = Array(9).fill(null);
+                this.detectedConfidence = Array(9).fill(0);
+                this.stabilityCounter = 0;
+                this.lastStableColors = null;
+                this.hideCountdown();
+
                 if (this.currentFace < 5) {
                     this.currentFace++;
                     this.updateScanningUI();
-                    this.detectedColors = Array(9).fill(null);
-                    this.detectedConfidence = Array(9).fill(0);
+                    this.updateStatusMessage('Hold steady and align cube with grid...', 'detecting');
                 } else {
                     this.stopScanningCamera();
                     this.startEditing();
